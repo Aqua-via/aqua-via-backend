@@ -1,0 +1,91 @@
+<!-- templates/analisis_form.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Realizar Análisis</title>
+</head>
+<body>
+<h1>Realizar Análisis de Rutas</h1>
+<form action="{{ url_for('analisis') }}" method="post">
+    <label for="departamento">Departamento:</label>
+    <select name="departamento" id="departamento" onchange="cargarProvincias(this.value)">
+        <option value="">--Seleccionar Departamento--</option>
+        {% for depto in departamentos %}
+            <option value="{{ depto }}">{{ depto }}</option>
+        {% endfor %}
+    </select><br><br>
+
+    <label for="provincia">Provincia:</label>
+    <select name="provincia" id="provincia" onchange="cargarDistritos(this.value)">
+        <option value="">--Seleccionar Provincia--</option>
+        <!-- Opciones dinámicas -->
+    </select><br><br>
+
+    <label for="distrito">Distrito:</label>
+    <select name="distrito" id="distrito" onchange="cargarPuntos()">
+        <option value="">--Seleccionar Distrito--</option>
+        <!-- Opciones dinámicas -->
+    </select><br><br>
+
+    <label for="punto_id">Punto Crítico:</label>
+    <select name="punto_id" id="punto_id">
+        <option value="">--Seleccionar Punto Crítico--</option>
+        <!-- Opciones dinámicas basadas en filtros -->
+    </select><br><br>
+
+    <input type="submit" value="Realizar Análisis">
+</form>
+
+<script>
+    // Funciones para cargar provincias y distritos dinámicamente
+    const puntos = {{ puntos_df.to_dict(orient='records')|tojson }};
+
+    function cargarProvincias(depto) {
+        const provincias = [...new Set(puntos.filter(p => p.Departamento === depto).map(p => p.Provincia))];
+        const provinciaSelect = document.getElementById('provincia');
+        provinciaSelect.innerHTML = '<option value="">--Seleccionar Provincia--</option>';
+        provincias.forEach(prov => {
+            const option = document.createElement('option');
+            option.value = prov;
+            option.text = prov;
+            provinciaSelect.add(option);
+        });
+        cargarPuntos();
+    }
+
+    function cargarDistritos(prov) {
+        const distritos = [...new Set(puntos.filter(p => p.Provincia === prov).map(p => p.Distrito))];
+        const distritoSelect = document.getElementById('distrito');
+        distritoSelect.innerHTML = '<option value="">--Seleccionar Distrito--</option>';
+        distritos.forEach(dist => {
+            const option = document.createElement('option');
+            option.value = dist;
+            option.text = dist;
+            distritoSelect.add(option);
+        });
+        cargarPuntos();
+    }
+
+    function cargarPuntos() {
+        const depto = document.getElementById('departamento').value;
+        const prov = document.getElementById('provincia').value;
+        const dist = document.getElementById('distrito').value;
+        let puntosFiltrados = puntos;
+
+        if (depto) puntosFiltrados = puntosFiltrados.filter(p => p.Departamento === depto);
+        if (prov) puntosFiltrados = puntosFiltrados.filter(p => p.Provincia === prov);
+        if (dist) puntosFiltrados = puntosFiltrados.filter(p => p.Distrito === dist);
+
+        const puntoSelect = document.getElementById('punto_id');
+        puntoSelect.innerHTML = '<option value="">--Seleccionar Punto Crítico--</option>';
+        puntosFiltrados.forEach(punto => {
+            const option = document.createElement('option');
+            option.value = punto.ID;  // Asegúrate de que cada punto crítico tenga un ID único
+            option.text = punto.Sector;
+            puntoSelect.add(option);
+        });
+    }
+</script>
+</body>
+</html>
