@@ -124,7 +124,7 @@ def analisis():
             punto = punto.iloc[0]
 
             # Construir el grafo solo con embalses y el punto crítico seleccionado
-            G = construir_grafo(embalses_df, [punto], max_distancia=100, max_embalses=5)  # Ajusta según sea necesario
+            G = construir_grafo(embalses_df, [punto], max_distancia=500, max_embalses=5)  # Ajusta según sea necesario
 
             # Calcular rutas óptimas desde el punto crítico a todos los embalses
             distancias, rutas = calcular_rutas_optimas(G, punto['Latitud'], punto['Longitud'])

@@ -2,7 +2,7 @@
 import networkx as nx
 from geopy.distance import geodesic
 
-def construir_grafo(embalses_df, puntos_criticos, max_distancia=100, max_embalses=5):
+def construir_grafo(embalses_df, puntos_criticos, max_distancia=500, max_embalses=5):
     """
     Construye un grafo donde los nodos son embalses y puntos críticos.
     Conecta un punto crítico solo con los embalses más cercanos dentro de una distancia máxima.
