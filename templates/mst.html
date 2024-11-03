@@ -10,6 +10,16 @@
             height: 600px;
             width: 100%;
         }
+        #controls {
+            margin-top: 10px;
+        }
+        #step-info {
+            margin-top: 10px;
+        }
+        #edge-info {
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -17,27 +27,38 @@
 
 <div id="map"></div>
 
+<div id="controls">
+    <button id="prev-btn">Anterior</button>
+    <button id="next-btn">Siguiente</button>
+    <button id="final-btn">Ir al Paso Final</button>
+    <span>Paso <span id="current-step">1</span> de {{ pasos|length }}</span>
+</div>
+
+<div id="step-info"></div>
+<div id="edge-info"></div>
+
 <br>
 <a href="{{ url_for('mst') }}">Generar Otro MST</a><br>
 <a href="{{ url_for('index') }}">Volver al Inicio</a>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-    // Inicializar el mapa centrado en el departamento seleccionado
     var nodos = {{ nodos|tojson }};
+    var aristasBase = {{ aristas_base|tojson }};
+    var pasos = {{ pasos|tojson }};
+    var totalSteps = pasos.length;
+
     var latitudes = nodos.map(nodo => nodo.lat);
     var longitudes = nodos.map(nodo => nodo.lon);
     var centro_lat = latitudes.reduce((a, b) => a + b, 0) / latitudes.length;
     var centro_lon = longitudes.reduce((a, b) => a + b, 0) / longitudes.length;
 
-    var map = L.map('map').setView([centro_lat, centro_lon], 10); // Ajusta el nivel de zoom según el departamento
+    var map = L.map('map').setView([centro_lat, centro_lon], 8);
 
-    // Añadir capa base
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Definir iconos personalizados
     var embalseIcon = L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -63,12 +84,79 @@
             .bindPopup('<b>' + (nodo.tipo === 'embalse' ? 'Embalse' : 'Punto Crítico') + ':</b> ' + nodo.nombre);
     });
 
-    // Añadir aristas al mapa
-    var aristas = {{ aristas|tojson }};
-    aristas.forEach(function(arista) {
-        L.polyline(arista.coords, {color: 'green', weight: 2}).addTo(map)
-            .bindPopup('Conexión: ' + arista.nombre_source + ' - ' + arista.nombre_target + '<br>Distancia: ' + arista.weight + ' km');
+    var baseLayerGroup = L.layerGroup().addTo(map);
+    var mstLayerGroup = L.layerGroup().addTo(map);
+    var consideredEdgeLayer = L.layerGroup().addTo(map);
+
+    // Mostrar el grafo base
+    aristasBase.forEach(function(arista) {
+        L.polyline(arista.coords, {color: 'gray', weight: 1, opacity: 0.5}).addTo(baseLayerGroup);
     });
+
+    var currentStep = 0;
+
+    function updateMap() {
+        mstLayerGroup.clearLayers();
+        consideredEdgeLayer.clearLayers();
+
+        if (currentStep >= 0 && currentStep < pasos.length) {
+            var paso = pasos[currentStep];
+            var aristasMST = paso.mst;
+            var consideredEdge = paso.considered_edge;
+            var descripcion = paso.descripcion;
+
+            // Dibujar el MST hasta este paso
+            aristasMST.forEach(function(arista) {
+                L.polyline(arista.coords, {color: 'green', weight: 3}).addTo(mstLayerGroup);
+            });
+
+            // Determinar si debemos mostrar la arista considerada
+            var mostrarConsideredEdge = true;
+
+            // Si estamos en el último paso y la arista fue descartada, no mostrarla
+            if (currentStep === totalSteps - 1 && paso.accion === 'descartada') {
+                mostrarConsideredEdge = false;
+            }
+
+            if (mostrarConsideredEdge) {
+                // Resaltar la arista considerada en este paso
+                var color = paso.accion === 'añadida' ? 'blue' : 'red';
+                L.polyline(consideredEdge.coords, {color: color, weight: 4, dashArray: '5, 5'}).addTo(consideredEdgeLayer);
+
+                // Actualizar la información de la arista considerada
+                document.getElementById('edge-info').innerText = 'Arista considerada: ' + consideredEdge.nombre_source + ' - ' + consideredEdge.nombre_target + ' (' + consideredEdge.weight + ' km)';
+            } else {
+                // Limpiar la información de la arista considerada
+                document.getElementById('edge-info').innerText = '';
+            }
+
+            // Actualizar la información del paso
+            document.getElementById('current-step').innerText = currentStep + 1;
+            document.getElementById('step-info').innerText = descripcion;
+        }
+    }
+
+    document.getElementById('prev-btn').addEventListener('click', function() {
+        if (currentStep > 0) {
+            currentStep--;
+            updateMap();
+        }
+    });
+
+    document.getElementById('next-btn').addEventListener('click', function() {
+        if (currentStep < totalSteps - 1) {
+            currentStep++;
+            updateMap();
+        }
+    });
+
+    // Evento para el botón "Ir al Paso Final"
+    document.getElementById('final-btn').addEventListener('click', function() {
+        currentStep = totalSteps - 1;
+        updateMap();
+    });
+
+    updateMap();
 </script>
 </body>
 </html>

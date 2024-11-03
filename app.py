@@ -4,7 +4,8 @@ import os
 import pandas as pd
 import utm
 
-from algorithms.mst_algorithm import construir_grafo_mst
+from algorithms.mst_algorithm import construir_grafo, kruskal_mst
+
 app = Flask(__name__)
 app.secret_key = 'tu_clave_secreta_aquí'  # Cambia esto por una clave secreta segura
 app.config['DATA_FOLDER'] = 'data/'
@@ -47,7 +48,7 @@ def cargar_datos():
     # Eliminar puntos con coordenadas inválidas
     puntos_df.dropna(subset=['Latitud', 'Longitud'], inplace=True)
 
-    # Si los embalses tienen coordenadas en UTM, conviértelas también
+    # Si los embalses tienen coordenadas en UTM, conviértelas también (si es necesario)
     # Aquí asumimos que embalses_df ya tiene 'Latitud' y 'Longitud'
     # Si no, necesitarás convertirlas de manera similar a los puntos críticos
 
@@ -64,23 +65,37 @@ def index():
 def mst():
     if request.method == 'POST':
         try:
-            # Obtener el departamento seleccionado desde el formulario
             departamento = request.form.get('departamento')
 
             if not departamento:
                 flash('Debes seleccionar un departamento.')
                 return redirect(url_for('mst'))
 
-            # Construir el MST para el departamento seleccionado
-            mst_graph = construir_grafo_mst(embalses_df, puntos_df, departamento)
+            G = construir_grafo(embalses_df, puntos_df, departamento)
 
-            if mst_graph is None:
+            if G is None:
                 flash(f"No se puede construir un MST para el departamento {departamento}. Asegúrate de que haya al menos dos nodos.")
                 return redirect(url_for('mst'))
 
-            # Preparar datos para la visualización
+            # Obtener el grafo base (todas las aristas)
+            aristas_base = []
+            for u, v, data in G.edges(data=True):
+                aristas_base.append({
+                    'source': u,
+                    'target': v,
+                    'weight': round(data['weight'], 2),
+                    'coords': [
+                        [G.nodes[u]['pos'][0], G.nodes[u]['pos'][1]],
+                        [G.nodes[v]['pos'][0], G.nodes[v]['pos'][1]]
+                    ],
+                    'nombre_source': G.nodes[u]['nombre'],
+                    'nombre_target': G.nodes[v]['nombre']
+                })
+
+            mst_edges, pasos = kruskal_mst(G)
+
             nodos = []
-            for node, data in mst_graph.nodes(data=True):
+            for node, data in G.nodes(data=True):
                 nodos.append({
                     'id': node,
                     'lat': data['pos'][0],
@@ -89,28 +104,53 @@ def mst():
                     'nombre': data['nombre']
                 })
 
-            aristas = []
-            for u, v, data in mst_graph.edges(data=True):
-                aristas.append({
-                    'source': u,
-                    'target': v,
-                    'weight': round(data['weight'], 2),  # Redondear para mejor legibilidad
-                    'coords': [
-                        [mst_graph.nodes[u]['pos'][0], mst_graph.nodes[u]['pos'][1]],
-                        [mst_graph.nodes[v]['pos'][0], mst_graph.nodes[v]['pos'][1]]
-                    ],
-                    'nombre_source': mst_graph.nodes[u]['nombre'],
-                    'nombre_target': mst_graph.nodes[v]['nombre']
+            # Preparar datos de las aristas del MST para cada paso
+            pasos_visualizacion = []
+            mst_so_far = []
+            for idx, paso in enumerate(pasos):
+                u, v = paso['edge']
+                data = G.get_edge_data(u, v)
+                descripcion = paso['descripcion']
+
+                # Copiar las aristas actuales del MST
+                if paso['accion'] == 'añadida':
+                    mst_so_far.append({
+                        'source': u,
+                        'target': v,
+                        'weight': round(data['weight'], 2),
+                        'coords': [
+                            [G.nodes[u]['pos'][0], G.nodes[u]['pos'][1]],
+                            [G.nodes[v]['pos'][0], G.nodes[v]['pos'][1]]
+                        ],
+                        'nombre_source': G.nodes[u]['nombre'],
+                        'nombre_target': G.nodes[v]['nombre']
+                    })
+
+                # Para cada paso, incluimos la información de la arista considerada y la descripción
+                pasos_visualizacion.append({
+                    'mst': mst_so_far.copy(),
+                    'considered_edge': {
+                        'source': u,
+                        'target': v,
+                        'weight': round(data['weight'], 2),
+                        'coords': [
+                            [G.nodes[u]['pos'][0], G.nodes[u]['pos'][1]],
+                            [G.nodes[v]['pos'][0], G.nodes[v]['pos'][1]]
+                        ],
+                        'nombre_source': G.nodes[u]['nombre'],
+                        'nombre_target': G.nodes[v]['nombre']
+                    },
+                    'descripcion': descripcion,
+                    'accion': paso['accion']
                 })
 
-            return render_template('mst.html', nodos=nodos, aristas=aristas, departamento=departamento)
+            return render_template('mst.html', nodos=nodos, aristas_base=aristas_base, pasos=pasos_visualizacion, departamento=departamento)
         except Exception as e:
             print(f"Error al generar el MST: {e}")
             flash("Se produjo un error al generar el MST. Por favor, inténtalo de nuevo.")
             return redirect(url_for('mst'))
     else:
         # Mostrar formulario para seleccionar departamento
-        # Obtener departamentos únicos de ambos DataFrames
         departamentos_embalses = embalses_df['Departamento'].dropna().unique().tolist()
         departamentos_puntos = puntos_df['Departamento'].dropna().unique().tolist()
         departamentos = list(set(departamentos_embalses + departamentos_puntos))

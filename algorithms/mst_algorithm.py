@@ -2,17 +2,11 @@
 import networkx as nx
 from geopy.distance import geodesic
 
-def construir_grafo_mst(embalses_df, puntos_df, departamento):
+def construir_grafo(embalses_df, puntos_df, departamento):
     """
-    Construye un grafo completo que incluye embalses y puntos críticos dentro de un departamento,
-    calcula el Árbol de Expansión Mínima y retorna el grafo MST.
-
-    :param embalses_df: DataFrame con datos de embalses
-    :param puntos_df: DataFrame con datos de puntos críticos
-    :param departamento: String que indica el departamento a filtrar (en mayúsculas)
-    :return: Grafo MST de NetworkX o None si no es posible construirlo
+    Construye un grafo completo que incluye embalses y puntos críticos dentro de un departamento.
     """
-    print(f"Construyendo el grafo completo para MST en el departamento: {departamento}...")
+    print(f"Construyendo el grafo completo en el departamento: {departamento}...")
     G = nx.Graph()
 
     # Filtrar embalses por departamento
@@ -33,19 +27,19 @@ def construir_grafo_mst(embalses_df, puntos_df, departamento):
     if 'ID' not in embalses_filtrados.columns:
         embalses_filtrados = embalses_filtrados.reset_index().rename(columns={'index': 'ID'})
 
-    # Añadir ID si falta en puntos_df
+    # Añadir ID si falta en puntos_filtrados
     if 'ID' not in puntos_filtrados.columns:
         puntos_filtrados = puntos_filtrados.reset_index().rename(columns={'index': 'ID'})
 
     # Añadir nodos de embalses con IDs únicos
     for _, row in embalses_filtrados.iterrows():
-        nodo_id = f"embalse_{row['ID']}"  # Crear un identificador único para embalses
+        nodo_id = f"embalse_{row['ID']}"
         G.add_node(nodo_id, pos=(row['Latitud'], row['Longitud']), tipo='embalse', nombre=row['Nombre de la Presa'])
         print(f"Añadido embalse: {nodo_id} - {row['Nombre de la Presa']}")
 
     # Añadir nodos de puntos críticos con IDs únicos
     for _, row in puntos_filtrados.iterrows():
-        nodo_id = f"punto_{row['ID']}"  # Crear un identificador único para puntos críticos
+        nodo_id = f"punto_{row['ID']}"
         G.add_node(nodo_id, pos=(row['Latitud'], row['Longitud']), tipo='punto_critico', nombre=row['Sector'])
         print(f"Añadido punto crítico: {nodo_id} - {row['Sector']}")
 
@@ -59,13 +53,70 @@ def construir_grafo_mst(embalses_df, puntos_df, departamento):
             coord2 = data2['pos']
             distancia = geodesic(coord1, coord2).kilometers
             G.add_edge(nodo1, nodo2, weight=distancia)
-            print(f"Arista añadida entre {nodo1} y {nodo2} con distancia {distancia:.2f} km")
+            # print(f"Arista añadida entre {nodo1} y {nodo2} con distancia {distancia:.2f} km")
 
-    # Calcular el Árbol de Expansión Mínima
-    try:
-        mst = nx.minimum_spanning_tree(G, weight='weight')
-        print("Árbol de Expansión Mínima construido exitosamente.")
-        return mst
-    except Exception as e:
-        print(f"Error al calcular el MST: {e}")
-        return None
+    return G
+
+def kruskal_mst(G):
+    """
+    Implementa el algoritmo de Kruskal para encontrar el Árbol de Expansión Mínima (MST).
+    Además, registra los pasos intermedios con descripciones para visualización.
+    """
+    parent = {}
+    rank = {}
+
+    def find(u):
+        while parent[u] != u:
+            parent[u] = parent[parent[u]]  # Compresión de ruta
+            u = parent[u]
+        return u
+
+    def union(u, v):
+        u_root = find(u)
+        v_root = find(v)
+        if u_root == v_root:
+            return False  # Ya están conectados
+        if rank[u_root] < rank[v_root]:
+            parent[u_root] = v_root
+        else:
+            parent[v_root] = u_root
+            if rank[u_root] == rank[v_root]:
+                rank[u_root] += 1
+        return True
+
+    # Inicializar conjuntos
+    for node in G.nodes():
+        parent[node] = node
+        rank[node] = 0
+
+    # Ordenar las aristas por peso
+    edges = list(G.edges(data=True))
+    edges.sort(key=lambda x: x[2]['weight'])
+
+    mst_edges = []
+    steps = []  # Para registrar los pasos
+
+    for u, v, data in edges:
+        u_root = find(u)
+        v_root = find(v)
+        descripcion = f"Considerando la arista {u} - {v} con peso {data['weight']:.2f} km."
+
+        if u_root != v_root:
+            union(u, v)
+            mst_edges.append((u, v, data))
+            descripcion += " No forma ciclo. Arista añadida al MST."
+            accion = 'añadida'
+            print(f"Arista añadida al MST: {u} - {v} con peso {data['weight']:.2f}")
+        else:
+            descripcion += " Forma ciclo. Arista descartada."
+            accion = 'descartada'
+            print(f"Arista descartada: {u} - {v} (forma ciclo)")
+
+        steps.append({
+            'edge': (u, v),
+            'weight': data['weight'],
+            'descripcion': descripcion,
+            'accion': accion
+        })
+
+    return mst_edges, steps
