@@ -1,16 +1,14 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Página de Inicio</title>
+    <title>Inicio - Gestión de Embalses y Puntos Críticos</title>
 </head>
 <body>
-<h1>Bienvenido a la Aplicación de Gestión de Recursos Hídricos</h1>
-<nav>
-    <ul>
-{#        <li><a href="{{ url_for('cargar_datos') }}">Cargar Datos</a></li>#}
-        <li><a href="{{ url_for('analisis') }}">Realizar Análisis</a></li>
-    </ul>
-</nav>
+<h1>Bienvenido a la Aplicación de Gestión de Embalses y Puntos Críticos</h1>
+<ul>
+    <li><a href="{{ url_for('mst') }}">Generar Árbol de Expansión Mínima (MST) por Departamento</a></li>
+</ul>
 </body>
 </html>

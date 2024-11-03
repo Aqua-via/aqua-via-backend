@@ -1,0 +1,74 @@
+<!-- templates/mst.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Árbol de Expansión Mínima (MST) - {{ departamento }}</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<h1>Árbol de Expansión Mínima (MST) - {{ departamento }}</h1>
+
+<div id="map"></div>
+
+<br>
+<a href="{{ url_for('mst') }}">Generar Otro MST</a><br>
+<a href="{{ url_for('index') }}">Volver al Inicio</a>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    // Inicializar el mapa centrado en el departamento seleccionado
+    var nodos = {{ nodos|tojson }};
+    var latitudes = nodos.map(nodo => nodo.lat);
+    var longitudes = nodos.map(nodo => nodo.lon);
+    var centro_lat = latitudes.reduce((a, b) => a + b, 0) / latitudes.length;
+    var centro_lon = longitudes.reduce((a, b) => a + b, 0) / longitudes.length;
+
+    var map = L.map('map').setView([centro_lat, centro_lon], 10); // Ajusta el nivel de zoom según el departamento
+
+    // Añadir capa base
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Definir iconos personalizados
+    var embalseIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
+    var puntoIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
+    // Añadir nodos al mapa
+    nodos.forEach(function(nodo) {
+        var marker = L.marker([nodo.lat, nodo.lon], {icon: nodo.tipo === 'embalse' ? embalseIcon : puntoIcon})
+            .addTo(map)
+            .bindPopup('<b>' + (nodo.tipo === 'embalse' ? 'Embalse' : 'Punto Crítico') + ':</b> ' + nodo.nombre);
+    });
+
+    // Añadir aristas al mapa
+    var aristas = {{ aristas|tojson }};
+    aristas.forEach(function(arista) {
+        L.polyline(arista.coords, {color: 'green', weight: 2}).addTo(map)
+            .bindPopup('Conexión: ' + arista.nombre_source + ' - ' + arista.nombre_target + '<br>Distancia: ' + arista.weight + ' km');
+    });
+</script>
+</body>
+</html>

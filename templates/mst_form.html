@@ -1,0 +1,36 @@
+<!-- templates/mst_form.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Generar MST por Departamento</title>
+</head>
+<body>
+<h1>Generar Árbol de Expansión Mínima (MST) por Departamento</h1>
+
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <ul>
+            {% for message in messages %}
+                <li style="color: red;">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endwith %}
+
+<form method="post">
+    <label for="departamento">Selecciona un Departamento:</label>
+    <select name="departamento" id="departamento" required>
+        <option value="" disabled selected>-- Selecciona un Departamento --</option>
+        {% for depto in departamentos %}
+            <option value="{{ depto }}">{{ depto }}</option>
+        {% endfor %}
+    </select>
+    <br><br>
+    <input type="submit" value="Generar MST">
+</form>
+
+<br>
+<a href="{{ url_for('index') }}">Volver al Inicio</a>
+</body>
+</html>
